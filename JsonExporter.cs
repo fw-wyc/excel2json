@@ -11,7 +11,8 @@ namespace excel2json {
     /// </summary>
     class JsonExporter {
         string mContext = "";
-
+        int headerIndex=0;
+        DataRow rows = null;
         public string context {
             get {
                 return mContext;
@@ -22,9 +23,10 @@ namespace excel2json {
         /// 构造函数：完成内部数据创建
         /// </summary>
         /// <param name="excel">ExcelLoader Object</param>
-        public JsonExporter(ExcelLoader excel, bool lowcase, bool exportArray, string dateFormat) {
+        public JsonExporter(ExcelLoader excel, bool lowcase, bool exportArray, string dateFormat, int headerRow) {
 
             List<DataTable> validSheets = new List<DataTable>();
+            headerIndex = headerRow;
             for (int i = 0; i < excel.Sheets.Count; i++) {
                 DataTable sheet = excel.Sheets[i];
 
@@ -38,7 +40,7 @@ namespace excel2json {
             };
 
             if (validSheets.Count == 1) {   // single sheet
-
+                rows = validSheets[0].Rows[0];
                 //-- convert to object
                 object sheetValue = convertSheet(validSheets[0], exportArray, lowcase);
 
@@ -48,10 +50,16 @@ namespace excel2json {
             else { // mutiple sheet
 
                 Dictionary<string, object> data = new Dictionary<string, object>();
-                foreach (var sheet in validSheets) {
-                    object sheetValue = convertSheet(sheet, exportArray, lowcase);
-                    data.Add(sheet.TableName, sheetValue);
+                for(int i=0;i<validSheets.Count;i++)
+                {
+                    rows = validSheets[i].Rows[0];
+                    object sheetValue = convertSheet(validSheets[i], exportArray, lowcase);
+                    data.Add(validSheets[i].TableName, sheetValue);
                 }
+                //foreach (var sheet in validSheets) {
+                //    object sheetValue = convertSheet(sheet, exportArray, lowcase);
+                //    data.Add(sheet.TableName, sheetValue);
+                //}
 
                 //-- convert to json string
                 mContext = JsonConvert.SerializeObject(data, jsonSettings);
@@ -68,10 +76,10 @@ namespace excel2json {
         private object convertSheetToArray(DataTable sheet, bool lowcase) {
             List<object> values = new List<object>();
 
-            int firstDataRow = 0;
+            int firstDataRow = 1;
+           
             for (int i = firstDataRow; i < sheet.Rows.Count; i++) {
                 DataRow row = sheet.Rows[i];
-
                 values.Add(
                     convertRowToDict(sheet, row, lowcase, firstDataRow)
                     );
@@ -87,7 +95,7 @@ namespace excel2json {
             Dictionary<string, object> importData =
                 new Dictionary<string, object>();
 
-            int firstDataRow = 0;
+            int firstDataRow = 1;
             for (int i = firstDataRow; i < sheet.Rows.Count; i++) {
                 DataRow row = sheet.Rows[i];
                 string ID = row[sheet.Columns[0]].ToString();
@@ -109,8 +117,8 @@ namespace excel2json {
             var rowData = new Dictionary<string, object>();
             int col = 0;
             foreach (DataColumn column in sheet.Columns) {
+                //object value = row[column];
                 object value = row[column];
-
                 if (value.GetType() == typeof(System.DBNull)) {
                     value = getColumnDefault(sheet, column, firstDataRow);
                 }
@@ -119,8 +127,8 @@ namespace excel2json {
                     if ((int)num == num)
                         value = (int)num;
                 }
-
-                string fieldName = column.ToString();
+                //string fieldName = column.ToString();
+                string fieldName = rows[column].ToString();
                 // 表头自动转换成小写
                 if (lowcase)
                     fieldName = fieldName.ToLower();
